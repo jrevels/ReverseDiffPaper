@@ -1,0 +1,41 @@
+\documentclass[10pt]{article}
+\usepackage{hyperref}
+
+\begin{document}
+\title{Notes on benchmark models}
+\maketitle
+
+\section{MNIST/Neural network}
+This discussion is based on the TensorFlow MNIST tutorial at  \url{https://www.tensorflow.org/versions/r0.12/tutorials/mnist/pros/index.html}.
+
+The MNIST dataset is the fruit fly of supervised machine learning. It consists of a set of 60,000 training and 10,000 test images (28x28 pixels) of digits 0 -- 9. TensorFlow's "hello, world" example of a deep neural network is building a classifier for this data set. This neural network thus has $28^2=784$ inputs and 1 output (the predicted digit).
+
+\subsection{Single layer}
+Let $x = h_0$ be the vector of pixel inputs to the first layer. The activation of the first layer, $h_1$ is given by
+\begin{equation}
+    h_1 = W \cdot h_0 + b
+\end{equation}
+with $W$ a 784x10 matrix of weights and $b$ a 10-vector of biases. The probability of reporting a classification of digit $i$ is then given by
+\begin{equation}
+    y = p(i|x) = \mathrm{softmax}(h_1) = \frac{e^{h_{1i}}}{\sum_i e^{h_{1i}}}
+\end{equation}
+
+
+The objective of training is to minimize the loss function, which in this case is the cross-entropy between $y$ from the model and $\hat{y}$ from the data, which is a 10-vector with a one-hot representation of the digit in the image (i.e., an image depicting the digit 2 is coded as $\hat{y} = \langle 0, 0, 1, 0, 0, 0, 0, 0, 0, 0\rangle$):
+\begin{equation}
+    \mathcal{L} = \textrm{Cross-entropy}(y, \hat{y}) = \frac{1}{N}\sum_{n = 1, i = 0, 1}^N \left[\hat{y}_{ni}\log y_{ni} + (1 - \hat{y}_{ni}) \log (1 - y_{ni}) \right]
+\end{equation}
+where $n$ labels training examples and $i$ indices within the vector of predictions.\footnote{TensorFlow actually defines a more numerically stable version of this cross-entropy at \url{https://www.tensorflow.org/versions/r0.12/api_docs/python/nn.html#sigmoid_cross_entropy_with_logits} that uses $h_1$ directly.}
+
+\subsection{Multiple layers}
+The case of multiple layers works just as above:
+\begin{equation}
+    h_l = f(W \cdot h_{l-1} + b) \quad l < L
+\end{equation}
+with $f$ a sigmoid nonlinearity (e.g., tanh, logistic, etc.) and $L$ the number of hidden layers. For the last layer, we do not squash with $f$, but define
+\begin{equation}
+    y = \mathrm{softmax}(h_L) = \frac{e^{h_{Li}}}{\sum_i e^{h_{Li}}}
+\end{equation}
+and the computation of the loss function proceeds just as before.
+
+\end{document}
