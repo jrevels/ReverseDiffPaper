@@ -1,5 +1,6 @@
 \documentclass[10pt]{article}
 \usepackage{hyperref}
+\usepackage{amsmath}
 
 \begin{document}
 \title{Notes on benchmark models}
@@ -37,5 +38,60 @@ with $f$ a sigmoid nonlinearity (e.g., tanh, logistic, etc.) and $L$ the number 
     y = \mathrm{softmax}(h_L) = \frac{e^{h_{Li}}}{\sum_i e^{h_{Li}}}
 \end{equation}
 and the computation of the loss function proceeds just as before.
+
+\section{Variational Bayes linear regression}
+\subsection{Problem statement}
+This example is based on an implementation from the Edward library, which sits atop TensorFlow and facilitates statistical modeling: \url{https://github.com/blei-lab/edward}.
+
+The mathematical model for Bayesian linear regression is given by
+\begin{align}
+    \label{pmodel}
+    y &\sim \mathcal{N}(W \cdot x + b, \sigma^2) \\
+    W_i &\sim \mathcal{N}(0, \eta^2) \\
+    b_i &\sim \mathcal{N}(0, \eta^2)
+\end{align}
+That is, $y$, $W$, and $b$ are all normally distributed, with prior standard deviation $\eta$ on the individual elements of $W$ and $b$ and standard deviation $\sigma$ on the observations. Note also that we have written the observations $y$ as scalars, in which case $W$ is a vector. In the case that $y$ is a $d$-vector and $x$ a $m$-vector, the distribution of $y$ remains normal on each element (i.e., diagonal covariance), while $W$ becomes $d \times m$ and $b$ is a $d$-vector.
+
+In variational inference, we use an approximate posterior for each variable on which we want to do inference ($W$ and $b$). In mean field inference, we also assume that the posteriors over each entry are independent an normal:
+\begin{align}
+    \label{qmodel}
+    q(w_{ij}) &= \mathcal{N}(\mu_{ij}, \rho^2_{ij}) \\
+    q(b_{i}) &= \mathcal{N}(\nu_{i}, \phi^2_{i})
+\end{align}
+The goal, then, is to minimize the Kullback-Leibler divergence between the generative/encoding model $p$ in (\ref{pmodel}) and the posterior/decoding model $q$ in (\ref{qmodel}):
+\begin{equation}
+    \mathcal{D}(q||p) = \int\! dx\; q(x) \log \frac{q(x)}{p(x)} = -\mathbb{E}_q[\log p] - \mathcal{H}[q]
+\end{equation}
+with $\mathbb{E}_q$ the expectation with respect to the distribution $q$ and $\mathcal{H}[q]$ the differential entropy of the distribution $q$.\footnote{More conventionally, optimization is phrased in terms of maximizing the negative of this quantity, known as the evidence lower bound (ELBO).} In the case of the entropy, one can use the well-known formula for the entropy of the normal distribution with mean $\mu$ and standard deviation $\sigma$:
+\begin{equation}
+    \mathcal{H} = \frac{1}{2}\log (2\pi) + \log \sigma + \frac{1}{2}
+\end{equation}
+and since the full posterior $q$ is simply a product of independent normals, the full $\mathcal{H}$ term becomes
+\begin{equation}
+    \mathcal{H} = \frac{d(m + 1)}{2}(\log (2\pi) + 1) + \sum_{i=1}^d\sum_{j=1}^m \log \rho_{ij} + \sum_{i=1}^d \log \phi_i
+\end{equation}
+where again, $W$ has $dm$ entries, and $b$ has $d$ entries.
+
+The other contribution to the KL divergence can also be calculated by noting that $\log p$ factorizes over $W$ and $b$ priors and observations and using standard formulas for the log probability density function of the normal distribution. For the case of normal priors and normal posteriors, this can be computed in closed form, but for more general models, this can be an obnoxious algebraic burden. In those cases, one approximates both terms in the optimization objective by drawing samples $z_* \sim q(z)$ (typically just one) and calculating
+\begin{equation}
+    -\mathbb{E}_q[\log p] - \mathcal{H} \approx -\log p(z_*) + \log q(z_*)
+\end{equation}
+and taking the gradient of this stochastic expression with respect to the parameters defining the distribution $q$. In this simpler case, the first term above can be written
+\begin{align}
+    \log p(z) &= \sum_{n = 1}^N \mathrm{logpdf}(y_n|W_*\cdot x_n + b_*, \sigma^2) \\
+    &+ \sum_{i = 1}^d\sum_{j=1}^m \mathrm{logpdf}(W_*|0, \eta^2) \\
+    &+ \sum_{i = 1}^d \mathrm{logpdf}(b_*|0, \eta^2) \\
+\end{align}
+with logpdf the log probability density function of the normal distribution:
+\begin{equation}
+    \mathrm{logpdf}(y|\mu, \sigma^2) = -\frac{1}{2\sigma^2}(y - \mu)^2 - \frac{1}{2}\log(2\pi \sigma^2)
+\end{equation}
+
+\subsection{Optimization}
+As stated above, the goal is to minimize the KL divergence, but a couple of additional details arise from the fact that $\sigma$, $\eta$, $\rho$, and $\phi$ are required to be positive definite. To transform to unconstrained coordinates, Edward defines variables defined over the whole real line that are related to these strictly positive standard deviations via the softplus transform:
+\begin{equation}
+    \mathrm{softplus}(x) = \log (1 + e^x)
+\end{equation}
+Thus, for example, one defines $\sigma = \mathrm{softplus}(\tilde{\sigma})$ and treats $\tilde{\sigma}$ as the variable to be optimized.
 
 \end{document}
