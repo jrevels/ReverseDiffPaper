@@ -46,17 +46,21 @@ This example is based on an implementation from the Edward library, which sits a
 The mathematical model for Bayesian linear regression is given by
 \begin{align}
     \label{pmodel}
-    y &\sim \mathcal{N}(W \cdot x + b, \sigma^2) \\
-    W_i &\sim \mathcal{N}(0, \eta^2) \\
-    b_i &\sim \mathcal{N}(0, \eta^2)
+    \begin{split}
+        y &\sim \mathcal{N}(W \cdot x + b, \sigma^2) \\
+        W_i &\sim \mathcal{N}(0, \eta^2) \\
+        b_i &\sim \mathcal{N}(0, \eta^2)
+    \end{split}
 \end{align}
 That is, $y$, $W$, and $b$ are all normally distributed, with prior standard deviation $\eta$ on the individual elements of $W$ and $b$ and standard deviation $\sigma$ on the observations. Note also that we have written the observations $y$ as scalars, in which case $W$ is a vector. In the case that $y$ is a $d$-vector and $x$ a $m$-vector, the distribution of $y$ remains normal on each element (i.e., diagonal covariance), while $W$ becomes $d \times m$ and $b$ is a $d$-vector.
 
 In variational inference, we use an approximate posterior for each variable on which we want to do inference ($W$ and $b$). In mean field inference, we also assume that the posteriors over each entry are independent an normal:
 \begin{align}
     \label{qmodel}
-    q(w_{ij}) &= \mathcal{N}(\mu_{ij}, \rho^2_{ij}) \\
-    q(b_{i}) &= \mathcal{N}(\nu_{i}, \phi^2_{i})
+    \begin{split}
+        q(w_{ij}) &= \mathcal{N}(\mu_{ij}, \rho^2_{ij}) \\
+        q(b_{i}) &= \mathcal{N}(\nu_{i}, \phi^2_{i})
+    \end{split}
 \end{align}
 The goal, then, is to minimize the Kullback-Leibler divergence between the generative/encoding model $p$ in (\ref{pmodel}) and the posterior/decoding model $q$ in (\ref{qmodel}):
 \begin{equation}
