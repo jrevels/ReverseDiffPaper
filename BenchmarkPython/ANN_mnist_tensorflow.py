@@ -28,8 +28,7 @@ import csv
 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-
-import matplotlib.pyplot as plt
+from memory_profiler import profile
 
 # Take keyboard input to determine iter numbers and batchsize
 parser = argparse.ArgumentParser(description="Timing the automatic differentiation time in Tensorflow")
@@ -38,6 +37,11 @@ parser.add_argument("-bs", "--bs", type=int,  help="batchsize for MNIST training
 parser.add_argument("-s", "--seed", type=int,  help="tensorflow random seed", default=12345)
 
 args = parser.parse_args()
+
+# define a python memory profiler to print the memory allocation
+@profile
+def runsess(sess, var_grad, feed_dict):
+    sess.run(var_grad, feed_dict=feed_dict)
 
 # load in MNIST training data
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
@@ -55,6 +59,8 @@ lsclock = []
 # Mnist has 60,000 files in the training dataset
 bs = args.bs
 
+
+print("\nBuilding model...")
 # open a new session every time
 with tf.Session() as sess:
     tf.set_random_seed(args.seed)
@@ -66,6 +72,8 @@ with tf.Session() as sess:
     cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y, y_))
     # gradient virtual node
     var_grad = tf.gradients(cross_entropy, [W, b])[0]
+
+    print("Running gradients... (This may take a while)\n")
     
     for i in range(args.n):
         # get new batch
@@ -76,6 +84,17 @@ with tf.Session() as sess:
         var_grad_val = sess.run(var_grad, feed_dict={x: batch_xs, y_: batch_ys})
         lsclock.append(time.clock() - start_clock)
 
-with open("lsclock.csv","w") as filename:
+    # Printing out the memory allocation in Tensorflow graph:
+    # Once a certain memory is allocated for tensorflow graph, it seldom changes even in different iters.
+    # So we only need to print once.
+    # As the profiler is very slow, we separate the following function from above.
+    # 
+    print("Memory allocation:")
+    runsess(sess, var_grad, {x: batch_xs, y_: batch_ys})
+    # Note that the output MiB stands for "mebibyte" as 1MiB = 1048B
+
+print("Outputing to csv file...")
+
+with open("ANN_lsclock.csv","w") as filename:
     wr = csv.writer(filename, delimiter="\n")
     wr.writerow(lsclock)

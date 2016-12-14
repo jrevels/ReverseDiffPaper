@@ -29,8 +29,7 @@ import csv
 from scipy.stats import norm
 from edward.models import Normal, RandomVariable
 from edward.util import get_session, get_variables, copy, kl_multivariate_normal
-
-ed.set_seed(42)
+from memory_profiler import profile
 
 # Take keyboard input to determine iter numbers and batchsize
 parser = argparse.ArgumentParser(description="Timing the automatic differentiation time for Bayesian linear regression")
@@ -40,7 +39,9 @@ parser.add_argument("-s", "--seed", type=int,  help="tensorflow random seed", de
 
 args = parser.parse_args()
 
-print("Building model...")
+print("\nBuilding model...")
+
+ed.set_seed(args.seed)
 
 # Function to generate synthetic data
 def build_toy_dataset(N, noise_std=0.1):
@@ -50,6 +51,10 @@ def build_toy_dataset(N, noise_std=0.1):
     X = X.reshape((N, 1))
     return X.astype(np.float32), y.astype(np.float32)
 
+# define a python memory profiler to print the memory allocation
+@profile
+def runsess(sess, var_grad, feed_dict):
+    sess.run(var_grad, feed_dict=feed_dict)
 
 # Model setup
 N = 40  # number of data points
@@ -148,14 +153,23 @@ init.run(feed_dict)
 lsclock = []
 n_iter = args.n
 
-print("Running gradients... (This may take a while)")
+print("Running gradients... (This may take a while)\n")
 
 for _ in range(n_iter):
     start_clock = time.clock()
     var_grad_val = sess.run(grads, feed_dict)
     lsclock.append(time.clock() - start_clock)
 
-print("Outputing file...")
+# Printing out the memory allocation in Tensorflow graph:
+# Once a certain memory is allocated for tensorflow graph, it seldom changes even in different iters.
+# So we only need to print once.
+# As the profiler is very slow, we separate the following function from above.
+# 
+print("Memory allocation:")
+runsess(sess, grads, feed_dict)
+# Note that the output MiB stands for "mebibyte" as 1MiB = 1048B
+
+print("Outputing to csv file...")
 
 with open("BLR_lsclock.csv","w") as filename:
     wr = csv.writer(filename, delimiter="\n")
