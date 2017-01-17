@@ -1,9 +1,9 @@
 using MNIST, ReverseDiff
 using StatsFuns
 
-# const BATCH_SIZE = 100
-# const IMAGE_SIZE = 784
-# const CLASS_COUNT = 10
+const BATCH_SIZE = 100
+const IMAGE_SIZE = 784
+const CLASS_COUNT = 10
 
 ##################
 # data wrangling #
@@ -21,18 +21,18 @@ function load_mnist(data)
     return images, labels
 end
 
-# const TRAIN_IMAGES, TRAIN_LABELS = load_mnist(MNIST.traindata())
-# const TEST_IMAGES, TEST_LABELS = load_mnist(MNIST.testdata())
+const TRAIN_IMAGES, TRAIN_LABELS = load_mnist(MNIST.traindata())
+const TEST_IMAGES, TEST_LABELS = load_mnist(MNIST.testdata())
 
 # loading batches #
-#-----------------#
+# -----------------#
 
-# immutable Batch{W,B,P,L}
-#     weights::W
-#     bias::B
-#     pixels::P
-#     labels::L
-# end
+immutable Batch{W,B,P,L}
+    weights::W
+    bias::B
+    pixels::P
+    labels::L
+end
 
 function Batch(images, labels, i)
     weights = zeros(CLASS_COUNT, IMAGE_SIZE)
@@ -83,10 +83,7 @@ function cross_entropy(y′, y)
     # add a floor and ceiling to the input data
     y = max(y, eps(eltype(y)))
     y = min(y, 1 - eps(eltype(y)))
-    if minimum(y) <= 0
-        println("error!")
-    end
-    entropy = mean(-sum(y′ .* log(y) + (1 - y′) .* log(1 - y), 1) ./ CLASS_COUNT)
+
     #entropy = mean(sum(y′ .* (minus_log.(y)), 1))
     return entropy
 end
@@ -99,23 +96,50 @@ function col_normalize(A::AbstractArray)
     A
 end
 
-function softmax(x)
-    #x = x - sum(exp_x, 1))
+function dim_logsumexp(x, dim)
+    # take the log(sum(exp)) of a 2-d array in a numerical stable way
+    # exclude extreme cases
+    # S = typeof(x)
+    # isempty(x) && return -S(Inf)
+    u = max(0, maximum(x))
+    abs(u) == Inf && return any(isnan, x) ? S(NaN) : u
+    # the actual calculation
+    #s = sum(exp(x - u), dim)
+    return log(sum(exp(x - u), dim)) + u
+end
+
+function softmax_cross_entropy(y′, x)
+    # compte softmax with a numerical stable process
+    # since the outputing softmax is a ratio, rebase_x produces the same result as original x.
     max_x = max(0, maximum(x))
     rebase_x = x - max_x
 
-    #return exp(rebase_x - StatsFuns.logsumexp(rebase_x))
-    return col_normalize(exp(rebase_x - StatsFuns.logsumexp(rebase_x)))
+    y = exp(rebase_x) ./ sum(exp(rebase_x), 1)
+
+    # logsumexp = log(sum(exp(rebase_x), 1))
+    #
+    # y = exp(rebase_x - repmat(logsumexp, size(x, 1), 1))
+    #y = exp(rebase_x - repmat(dim_logsumexp(rebase_x, 1), size(x, 1), 1))
+
+    # y = col_normalize(exp(rebase_x - StatsFuns.logsumexp(rebase_x)))
     #return exp(rebase_x) ./ sum(exp(rebase_x), 1)
-    #rebase_x - logsumexp(logsumexp(rebase_x) - max_x)
-    #x = (exp_x = exp.(x); exp_x ./ sum(exp_x, 1))
+
+    y = max(y, eps(eltype(y)))
+    y = min(y, 1 - eps(eltype(y)))
+
+    #entropy = mean(sum(y′ .* minus_log.(y) + (1 - y′) .* minus_log.(1 - y), 1) ./ CLASS_COUNT)
+    entropy = mean(sum(y′ .* (minus_log.(y)), 1))
+    # test without log()
+    #entropy = mean(-sum(y′ .* y, 1))
+    return entropy
 end
 
 function model(weights, bias, pixels, labels)
     y = (weights * pixels) .+ bias
     #y = mapslices(StatsFuns.softmax, y, 1)
-    y = softmax(y)
-    return cross_entropy(labels, y)
+    #y = softmax(y)
+    #return cross_entropy(labels, y)
+    return softmax_cross_entropy(labels, y)
 end
 
 # gradient definitions #
@@ -147,10 +171,18 @@ end
 ############
 # training #
 ############
+function check_valid(batch::Batch)
+    fields = (sum(batch.weights), sum(batch.bias), sum(batch.pixels), sum(batch.labels))
+    fields
+end
 
-function train_batch!(∇batch::Batch, batch::Batch, rate, iters)
-    for _ in 1:iters
+function train_batch!(∇batch::Batch, batch::Batch, rate, labels, batch_count)
+    for bc in 1:batch_count
+        load_batch!(batch, images, labels, bc)
         ∇model!(∇batch, batch)
+        if any(isnan, check_valid(batch)) == NaN
+            DomainError()
+        end
         for i in eachindex(batch.weights)
             batch.weights[i] -= rate * ∇batch.weights[i]
         end
@@ -162,9 +194,11 @@ end
 # rate = 2.81048e-4
 function train_all!(∇batch::Batch, batch::Batch, images, labels, rate = 1e-4, iters = 5)
     batch_count = floor(Int, size(images, 2) / BATCH_SIZE)
-    for i in 1:batch_count
-        load_batch!(batch, images, labels, i)
-        train_batch!(∇batch, batch, rate, iters)
+    for _ in 1:iters
+        train_batch!(∇batch, batch, rate, labels, batch_count)
+        if any(isnan, check_valid(batch)) == NaN
+            DomainError()
+        end
     end
     return ∇batch
 end
@@ -191,7 +225,7 @@ train_all!(∇batch, batch, TRAIN_IMAGES, TRAIN_LABELS)
 =#
 
 
-
+# test the model using TEST_IMAGES
 
 function accuracy(result::Array, label::Array)
     score = 0
