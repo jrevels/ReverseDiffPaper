@@ -1,6 +1,8 @@
 \documentclass[10pt]{article}
 \usepackage{hyperref}
 \usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 \begin{document}
 \title{Notes on benchmark models}
@@ -28,6 +30,7 @@ The objective of training is to minimize the loss function, which in this case i
 \end{equation}
 where $n$ labels training examples and $i$ indices within the vector of predictions.\footnote{TensorFlow actually defines a more numerically stable version of this cross-entropy at \url{https://www.tensorflow.org/versions/r0.12/api_docs/python/nn.html#sigmoid_cross_entropy_with_logits} that uses $h_1$ directly.}
 
+
 \subsection{Multiple layers}
 The case of multiple layers works just as above:
 \begin{equation}
@@ -38,6 +41,63 @@ with $f$ a sigmoid nonlinearity (e.g., tanh, logistic, etc.) and $L$ the number 
     y = \mathrm{softmax}(h_L) = \frac{e^{h_{Li}}}{\sum_i e^{h_{Li}}}
 \end{equation}
 and the computation of the loss function proceeds just as before.
+
+
+\subsection{Numerical Stability of softmax and cross entropy}
+In Neural Networks, it is natural to think and build a multiclass softmax function as a single layer (or single function, in this case), and it is also convenient to offer such function as a separated layer for the users. But in actual practice, to split softmax and cross entropy into separated functions may introduce more numerical instability to the result.
+
+This is a trick when implementing softmax and cross entropy together in neural networks, and Tensorflow is doing better than many other machine learning libraries so far. But when using stochastic gradient descent (like the one we have in ReverseDiff now), it is also possible to run into boundary value problems if the learning rate is large. For example, a learning rate of 3.3e-4 with batch size 100 will likely produce NaNs within five iterations, since the step size is so big that we are reaching the border of cross\_entropy() very quickly.
+
+There could be two improvements:
+\begin{enumerate}
+    \item Add an error or warning message to let people know the NaNs are being produced due to an inappropriate learning rate;
+    \item Implement other optimizer with adaptive learning rate (like AdamOpimizer etc.) in the future. (This is more like an optimization in the long run, so I wouldn't worry about it in the paper.)
+\end{enumerate}
+
+\subsection{Pseudo Code}
+
+The reason to use minibatch in model training is because:
+\begin{enumerate}
+    \item Reduce the input data to a more manageable size for GPU usage in the long run;
+    \item To train one batch at a time, and go through all batches within several iterations would not change the result too much (But not vice versa).
+\end{enumerate}
+
+Note that the size of minibatch would affect the learning rate of stochastic gradient descent. If the size of minibatch is changed, the learning rate will have to be changed accordingly. The learning rate that gives the best accuracy with our model can be found via function choose\_params() by plotting the learning rate and corresponding test accuracies.
+
+\begin{algorithm}[ht]
+\caption{Training Neural Network for MNIST example}
+    \begin{algorithmic}[1]
+        \State Input: MNIST data, batch size, learning rate
+        \State Output: Trained weights and bias from neural network \\
+        \State Initiate weights and bias with batch size
+        \Procedure{Iterate} {Training}
+            \State Load a batch (images, labels) from training dataset
+            \State Compute the loss between trained actual labels and calculated labels
+            \State Take gradient w.r.t the weights to minimize the loss function
+            \State Gradient descent batch.weights -= rate * ∇batch.weights
+            \If{stopping condition is met}
+                \State Return trained weights and bias
+            \EndIf
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\caption{Training Neural Network for MNIST example}
+% \SetKwInOut{Input}{Input}
+% \SetKwInOut{Output}{Output}
+    \begin{algorithmic}[1]
+        \State Input: batch size, trained weights, trained bias
+        \State Output: Accuracy of model prediction
+
+        \Procedure{Iterate} {Test}
+            \State Load a batch (images, labels) from test dataset
+            \State Compute predicted labels y = weights * images + bias
+            \State Return the matches between y and the actual labels
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm}
+
 
 \section{Variational Bayes linear regression}
 \subsection{Problem statement}
