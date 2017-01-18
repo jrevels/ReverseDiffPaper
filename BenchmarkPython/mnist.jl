@@ -256,6 +256,8 @@ function accuracy(result::Array, label::Array)
 end
 
 # test the model with test images
+# I did the test all at once without batches
+# Can also test the model using batches
 function test_model(batch::Batch)
     # load all test images
     #tbatch = Batch(TEST_IMAGES, TEST_LABELS, 1);
