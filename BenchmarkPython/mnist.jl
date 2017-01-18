@@ -1,8 +1,8 @@
 using MNIST, ReverseDiff
 
-# const BATCH_SIZE = 100
-# const IMAGE_SIZE = 784
-# const CLASS_COUNT = 10
+const BATCH_SIZE = 100
+const IMAGE_SIZE = 784
+const CLASS_COUNT = 10
 
 ##################
 # data wrangling #
@@ -20,18 +20,18 @@ function load_mnist(data)
     return images, labels
 end
 
-# const TRAIN_IMAGES, TRAIN_LABELS = load_mnist(MNIST.traindata())
-# const TEST_IMAGES, TEST_LABELS = load_mnist(MNIST.testdata())
-#
-# # loading batches #
-# # -----------------#
-#
-# immutable Batch{W,B,P,L}
-#     weights::W
-#     bias::B
-#     pixels::P
-#     labels::L
-# end
+const TRAIN_IMAGES, TRAIN_LABELS = load_mnist(MNIST.traindata())
+const TEST_IMAGES, TEST_LABELS = load_mnist(MNIST.testdata())
+
+# loading batches #
+# -----------------#
+
+immutable Batch{W,B,P,L}
+    weights::W
+    bias::B
+    pixels::P
+    labels::L
+end
 
 function Batch(images, labels, i)
     weights = zeros(CLASS_COUNT, IMAGE_SIZE)
@@ -150,7 +150,7 @@ end
 #----------------------#
 
 # generate the gradient function `∇model!(output, input)` from `model`
-∇model! = begin
+const ∇model! = begin
     # grab a sample batch as our seed data
     batch = Batch(TRAIN_IMAGES, TRAIN_LABELS, 1)
 
