@@ -46,8 +46,8 @@ ubiquitously useful.
 
 # Paper Structure
 
-Introduction
-Methodology
+- Introduction
+- Methodology
     - Language Features
         - multiple dispatch/operator-overloading design
         - JIT compilation
@@ -85,7 +85,7 @@ Methodology
         - constant elision via Julia's conversion system
         - user-defined derivative API
     - Perturbation Confusion
-Benchmarks
+- Benchmarks
     - Softmax
     - Bayesian Linear Regression
     - Convolutional Neural Net
@@ -99,7 +99,7 @@ Benchmarks
         - ADOL-C
         - Torch
         - DiffSharp
-Featured Applications
+- Featured Applications
     - Usage statistics?
     - JuMP
         - Coolest downstream examples?
@@ -109,7 +109,7 @@ Featured Applications
         - CG optimization (Hessian-vector products)
     - MOOSE
         - SIMD vectorization
-Conclusion
+- Conclusion
 
 # Work Timeline
 
